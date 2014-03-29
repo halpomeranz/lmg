@@ -1,0 +1,32 @@
+*** Makefile.orig	2013-03-19 09:55:54.000000000 -0500
+--- Makefile	2014-03-29 11:25:06.367909918 -0500
+***************
+*** 24,36 ****
+  lime-objs := tcp.o disk.o main.o
+  
+  KVER := $(shell uname -r)
+  
+  PWD := $(shell pwd)
+  
+  default:
+  	$(MAKE) -C /lib/modules/$(KVER)/build M=$(PWD) modules
+  	strip --strip-unneeded lime.ko
+! 	mv lime.ko lime-$(KVER).ko
+  	
+  	$(MAKE) tidy
+  
+--- 24,37 ----
+  lime-objs := tcp.o disk.o main.o
+  
+  KVER := $(shell uname -r)
++ CPU := $(shell uname -m)
+  
+  PWD := $(shell pwd)
+  
+  default:
+  	$(MAKE) -C /lib/modules/$(KVER)/build M=$(PWD) modules
+  	strip --strip-unneeded lime.ko
+! 	mv lime.ko lime-$(KVER)-$(CPU).ko
+  	
+  	$(MAKE) tidy
+  

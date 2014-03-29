@@ -1,0 +1,145 @@
+#!/bin/bash
+#
+# lmg -- Linux Memory Grabber
+#
+# Automation script for dumping Linux memory via LiME and building
+# a Volatility(TM) profile.  "lmg -y" will take care of the entire
+# process without prompting and save everything to the "capture"
+# sub-directory wherever the lmg program is installed (e.g. a thumb drive).
+# If you prefer raw dumps add "-F raw" (the default is "lime" format).
+#
+# See INSTALL doc for instructions for how to configure a thumb drive
+# for use with this tool.
+#
+# Hal Pomeranz (hal@deer-run.com), 2014-03-29
+#
+# No warranty expressed or implied.
+# Distributed under the Creative Commons "Attribution" (CC BY) License
+# See https://creativecommons.org/licenses/
+
+export PATH=/sbin:/bin:/usr/bin
+
+FORMAT=lime
+YESTOALL=n
+while getopts ":F:y" opt; do
+  case $opt in
+      F)
+	  FORMAT=$OPTARG
+	  ;;
+      y)
+	  YESTOALL=y
+	  ;;
+      \?)
+	  echo "Usage: $0 [-y] [-F lime|raw]"
+	  exit 255
+	  ;;
+  esac
+done
+
+# Linux USB 2.0 speedup -- see http://marc-abramowitz.com/archives/2007/02/17/
+for f in $(find /sys -name max_sectors); do
+    echo 1024 >>$f
+done
+
+# Figure out where the tool is being run from and create an absolute pathname.
+# All other paths are expected to be relative to here.
+#
+TOPDIR=$(dirname $0)
+[[ $(echo $TOPDIR | cut -c1) != "/" ]] && TOPDIR=$(pwd)/$TOPDIR
+TOPDIR=$(echo $TOPDIR | sed 's/\/\.*$//')
+
+KVER=$(uname -r)                    # e.g., "3.2.0-41-generic"
+CPU=$(uname -m)                     # typically "x86_64" or "i686"
+HOST=$(hostname)
+TIMESTAMP=$(date '+%F_%H.%M.%S')    # YYYY-MM-DD_hh.mm.ss
+
+# Try to keep temp files under install directory-- avoid impact to
+# system where tool is running...
+#
+mkdir -p $TOPDIR/tmp
+export TMPDIR=$TOPDIR/tmp
+
+# Go find the LiME installation and build a new kernel module if necessary.
+# Abort if no module found/created.
+#
+LIMEDIR=$(dirname $(find $TOPDIR -name lime.h))
+cd $LIMEDIR
+if [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
+    if [[ $YESTOALL == 'n' ]]; then
+	echo -n 'Try to build LiME kernel module? [N|y] '
+	read mod
+    fi
+    if [[ $YESTOALL == 'y' || $mod == 'y' || $mod = 'Y' ]]; then
+	make
+	if [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
+	    echo Still no matching kernel module found... exiting!
+	    exit 255
+	fi
+    else
+	exit
+    fi
+fi
+
+# Use the LiME module to capture memory to $TOPDIR/capture/$HOST-$TIMESTAMP
+#
+mkdir -p $TOPDIR/capture/$HOST-$TIMESTAMP
+echo Dumping memory in \"$FORMAT\" format to $TOPDIR/capture/$HOST-$TIMESTAMP 
+echo -n This could take a while...
+insmod lime-$KVER-$CPU.ko "format=$FORMAT path=$TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-memory.$FORMAT"
+echo -n Done!  Cleaning up...
+rmmod lime
+echo Done!
+
+# We want a copy of the local bash executable so we can find the offset
+# of the history data structure.
+#
+echo -n Grabbing a copy of /bin/bash...
+cp /bin/bash $TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-bash
+echo Done!
+
+# Last step is to build a profile for the system.  If you don't want
+# this, then you don't have to install dwarfdump or volatility on your
+# thumb drive.  lmg will give up if these directories aren't found.
+#
+if [[ $YESTOALL == 'n' ]]; then
+    echo -n 'Compile profile for this system? [N|y] '
+    read prof
+fi
+if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
+    VOLDIR=$(dirname $(find $TOPDIR -name module.c))
+    if [[ ! (-d $VOLDIR) ]]; then
+	echo Can\'t find volatility directory.  Giving up!
+	exit 255
+    fi
+    
+    DWARFPROG=$(find $TOPDIR -name dwarfdump-$CPU)
+    if [[ ! ( -x $DWARFPROG ) ]]; then
+	echo Failed to find program dwarfdump-$CPU.  Giving up!
+	exit 255
+    fi
+    DWARFDIR=$(dirname $DWARFPROG)
+
+    # Put the right dwarfdump for this CPU architecture into the PATH
+    export HOME=$DWARFDIR
+    cd $DWARFDIR
+    rm -f dwarfdump
+    ln -s dwarfdump-$CPU dwarfdump
+    export PATH=$DWARFDIR:$PATH
+
+    # Build module.c against kernel headers found on local system and
+    # with System.map from local /boot directory.
+    cd $VOLDIR
+    make dwarf
+    if [[ ! (-f module.dwarf) ]]; then
+	echo Failed to make module.dwarf.  Giving up!
+	exit 255
+    fi
+    if [[ ! (-f /boot/System.map-$KVER) ]]; then
+	echo /boot/System.map-$KVER not found.  Giving up!
+	exit 255
+    fi
+
+    # Profile ends up in $TOPDIR/capture/$HOST-$TIMESTAMP with memory image
+    zip $TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-profile.zip \
+	module.dwarf /boot/System.map-$KVER
+fi
