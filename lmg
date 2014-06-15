@@ -19,9 +19,17 @@
 
 export PATH=/sbin:/bin:/usr/bin
 
+if [ X`id -u` != 'X0' ]; then
+	echo "Not root! exiting..."
+	exit 255
+fi
+if [ `mount | grep showexec | wc -l` -gt 0 ]; then
+	echo "Warning! your disk might be mounted with showexec flag (and in vfat format) which will prevent linux files execution. In this case, you need to unmount the disk and mount it manually (remount option will NOT get rid of it)."
+fi
+
 FORMAT=lime
 YESTOALL=n
-while getopts ":F:y" opt; do
+while getopts ":F:yd:c:" opt; do
   case $opt in
       F)
 	  FORMAT=$OPTARG
@@ -29,8 +37,14 @@ while getopts ":F:y" opt; do
       y)
 	  YESTOALL=y
 	  ;;
+      d)
+	  TARGETDIR=$OPTARG
+	  ;;
+      c)
+	  CASEID=$OPTARG
+	  ;;
       \?)
-	  echo "Usage: $0 [-y] [-F lime|raw]"
+	  echo "Usage: $0 [-y] [-F lime|raw] [-d targetdir] [-c caseid]"
 	  exit 255
 	  ;;
   esac
@@ -54,15 +68,23 @@ HOST=$(hostname)
 TIMESTAMP=$(date '+%F_%H.%M.%S')    # YYYY-MM-DD_hh.mm.ss
 
 # Try to keep temp files under install directory-- avoid impact to
-# system where tool is running...
+# system where tool is running... or using alternate path if toolset is ro
 #
-mkdir -p $TOPDIR/tmp
-export TMPDIR=$TOPDIR/tmp
+if [ "X$TARGETDIR" != "X" ]; then
+	export TMPDIR=$TARGETDIR/tmp
+	export CAPTUREDIR=$TARGETDIR/capture/$HOST-$TIMESTAMP
+else
+	export TMPDIR=$TOPDIR/tmp
+	export CAPTUREDIR=$TOPDIR/capture/$HOST-$TIMESTAMP
+fi
+[ -n "$CASEID" ] && export CAPTUREDIR="$CAPTUREDIR-$CASEID"
+[ ! -d $TMPDIR ] && mkdir -p $TMPDIR
+[ ! -d $CAPTUREDIR ] && mkdir -p $CAPTUREDIR
 
 # Go find the LiME installation and build a new kernel module if necessary.
 # Abort if no module found/created.
 #
-LIMEDIR=$(dirname $(find $TOPDIR -name lime.h))
+LIMEDIR=$(dirname $(find $TOPDIR/../ -name lime.h))
 cd $LIMEDIR
 if [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
     if [[ $YESTOALL == 'n' ]]; then
@@ -72,8 +94,18 @@ if [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
     if [[ $YESTOALL == 'y' || $mod == 'y' || $mod = 'Y' ]]; then
 	make
 	if [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
-	    echo Still no matching kernel module found... exiting!
-	    exit 255
+	    if [ "X$TMPDIR" != "X$TOPDIR/tmp" ]; then
+	       echo Failed to build kernel module... trying again in $TMPDIR
+	       cp -R $LIMEDIR $TMPDIR/
+	       LIMEDIR=$(dirname $(find $TMPDIR -name lime.h))
+	       cd $LIMEDIR && make
+	    fi
+	    if [ ! -f lime-$KVER-$CPU.ko -a -f lime-$KVER.ko ]; then
+	       cp lime-$KVER.ko lime-$KVER-$CPU.ko
+	    elif [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
+	       echo Still no matching kernel module found... exiting!
+	       exit 255
+	    fi
 	fi
     else
 	exit
@@ -82,10 +114,9 @@ fi
 
 # Use the LiME module to capture memory to $TOPDIR/capture/$HOST-$TIMESTAMP
 #
-mkdir -p $TOPDIR/capture/$HOST-$TIMESTAMP
-echo Dumping memory in \"$FORMAT\" format to $TOPDIR/capture/$HOST-$TIMESTAMP 
+echo Dumping memory in \"$FORMAT\" format to $CAPTUREDIR
 echo -n This could take a while...
-insmod lime-$KVER-$CPU.ko "format=$FORMAT path=$TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-memory.$FORMAT"
+insmod lime-$KVER-$CPU.ko "format=$FORMAT path=$CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT"
 echo -n Done!  Cleaning up...
 rmmod lime
 echo Done!
@@ -94,7 +125,7 @@ echo Done!
 # of the history data structure.
 #
 echo -n Grabbing a copy of /bin/bash...
-cp /bin/bash $TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-bash
+cp /bin/bash $CAPTUREDIR/$HOST-$TIMESTAMP-bash
 echo Done!
 
 # Last step is to build a profile for the system.  If you don't want
@@ -106,7 +137,7 @@ if [[ $YESTOALL == 'n' ]]; then
     read prof
 fi
 if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
-    VOLDIR=$(dirname $(find $TOPDIR -name module.c))
+    VOLDIR=$(dirname $(find $TOPDIR/../ -name module.c))
     if [[ ! (-d $VOLDIR) ]]; then
 	echo Can\'t find volatility directory.  Giving up!
 	exit 255
@@ -120,15 +151,14 @@ if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
     DWARFDIR=$(dirname $DWARFPROG)
 
     # Put the right dwarfdump for this CPU architecture into the PATH
-    export HOME=$DWARFDIR
-    cd $DWARFDIR
-    rm -f dwarfdump
-    ln -s dwarfdump-$CPU dwarfdump
-    export PATH=$DWARFDIR:$PATH
+    #export HOME=$DWARFDIR
+    ln -s $DWARFDIR/dwarfdump-$CPU $TMPDIR/dwarfdump
+    export PATH=$TMPDIR:$PATH
 
     # Build module.c against kernel headers found on local system and
     # with System.map from local /boot directory.
     cd $VOLDIR
+    cp -R $VOLDIR $TMPDIR/ && cd $TMPDIR/${VOLDIR##*/}
     make dwarf
     if [[ ! (-f module.dwarf) ]]; then
 	echo Failed to make module.dwarf.  Giving up!
@@ -140,6 +170,6 @@ if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
     fi
 
     # Profile ends up in $TOPDIR/capture/$HOST-$TIMESTAMP with memory image
-    zip $TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-profile.zip \
+    zip $CAPTUREDIR/$HOST-$TIMESTAMP-profile.zip \
 	module.dwarf /boot/System.map-$KVER
 fi
