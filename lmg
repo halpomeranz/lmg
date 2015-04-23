@@ -143,3 +143,35 @@ if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
     zip $TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-profile.zip \
 	module.dwarf /boot/System.map-$KVER
 fi
+
+
+# Create a volatilityrc file for this session?
+# Makes it easy to run vol.py --conf-file=/path/to/volatilityrc and have
+# profile, target file, etc set for you
+if [[ $YESTOALL == 'n' ]]; then
+    echo -n 'Create volatilityrc for this session? [N|y] '
+    read createrc
+fi
+if [[ $YESTOALL == 'y' || $createrc == 'y' || $createrc = 'Y' ]]; then
+
+    # set up variables matching what the profile will end up being
+    if [[ $CPU == 'x86_64' ]]; then
+        ARCH=x64
+    fi
+    if [[ $CPU == 'i686' ]]; then
+        ARCH=x86
+    fi
+    PROFILENAME=Linux$HOST-$TIMESTAMP-profile$ARCH
+
+    # change . to _
+    PROFILENAME=${PROFILENAME//\./_}
+
+
+    cat >$TOPDIR/capture/$HOST-$TIMESTAMP/volatilityrc <<EOL
+[DEFAULT]
+PLUGINS=$TOPDIR/capture/$HOST-$TIMESTAMP/
+PROFILE=$PROFILENAME
+LOCATION=file:///$TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-memory.$FORMAT
+EOL
+
+fi
