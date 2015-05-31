@@ -75,8 +75,7 @@ Removable Media -- The tool is designed to be run from a portable USB
   auto-mounted by the operating system, the user must manually mount the 
   device via a root shell.
 
-Compilation
-----------
+####Compilation
   lmg builds a LiME kernel module for the system.
   Creating a Volatility(TM) profile also involves compiling code on
   the target machine.  So gcc will be executed, header files read,
@@ -86,8 +85,7 @@ Compilation
   created by the compiler will be written to the thumb drive rather
   than the local file system of the target machine.
 
-Dependencies
-------------
+####Dependencies
   In order to compile kernel code on Linux, the target
   machine needs a working development environment with gcc, make, etc 
   and all of the appropriate include files and shared libraries.
@@ -97,16 +95,14 @@ Dependencies
   the appropriate dependencies (if possible) or being unable to
   acquire memory from the target.
 
-Malware 
--------
+####Malware 
   lmg uses bash, gcc, and a host of other programs from
   the target machine.  If the system has been compromised, the applications
   lmg uses may not be trustworthy.  A more complete solution would be
   to create a secure execution environment for lmg on the portable USB
   device, but was beyond the scope of this initial proof of concept.
 
-Memory
-------
+####Memory
   All of the commands being run will cause the memory of the
   target system to change.  The act of capturing RAM will always create
   artifacts, but in this case there is extensive compilation, file system
@@ -116,7 +112,7 @@ All of that being said, lmg is a very convenient tool for allowing
 less-skilled agents to capture useful memory analysis data from
 target systems.
 
-**Note :** 
+###Note 
 that lmg will look for an already existing LiME module on the
 USB device that matches the kernel version and processor architecture
 of the target machine.  If found, lmg will not bother to recompile.
