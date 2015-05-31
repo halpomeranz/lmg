@@ -12,15 +12,15 @@ THANKS!
 There are a lot of people who deserve thanks for making this simple
 little tool possible:
 
--- Joe Sylve for his work on LiME
+* **Joe Sylve** for his work on LiME
 
--- The entire Volatility(TM) development team for their ongoing work.
+* The entire **Volatility**(TM) development team for their ongoing work.
    I'd like to particularly recognize Andrew Case who answered a number
    of pesky questions from me during development of my tool.
 
--- David Anderson for his ongoing support of libdwarf and dwarfdump
+* **David Anderson** for his ongoing support of libdwarf and dwarfdump
 
--- Matt Suiche from MoonSols.  When I was putting my tool together,
+* **Matt Suiche** from MoonSols.  When I was putting my tool together,
    my design goal was "make it as easy to use as DumpIt" (if you need
    to capture Windows memory, I know of no easier to use tool).
    So thanks for the inspiration, Matt!
