@@ -113,7 +113,7 @@ less-skilled agents to capture useful memory analysis data from
 target systems.
 
 ###Note 
-that lmg will look for an already existing LiME module on the
+LMG will look for an already existing LiME module on the
 USB device that matches the kernel version and processor architecture
 of the target machine.  If found, lmg will not bother to recompile.
 Similarly, you may choose to not have lmg create the Volatility(TM)
@@ -169,7 +169,7 @@ caribou# mkdir -p /mnt/usb
 caribou# mount /dev/sdb1 /mnt/usb
 ```
 
-2) Running lmg
+2) Running LMG
 --------------
 ```
 caribou# /mnt/usb/lmg -y
