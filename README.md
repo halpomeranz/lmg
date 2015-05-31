@@ -7,7 +7,7 @@ THANKS!
 =======
 
 >If I have seen further it is by standing on the shoulders of giants.
-     ~ Issac Newton
+      Issac Newton
 
 There are a lot of people who deserve thanks for making this simple
 little tool possible:
@@ -93,7 +93,7 @@ Dependencies -- In order to compile kernel code on Linux, the target
   the appropriate dependencies (if possible) or being unable to
   acquire memory from the target.
 
-Malware -- lmg uses /bin/bash, gcc, and a host of other programs from
+Malware -- lmg uses bash, gcc, and a host of other programs from
   the target machine.  If the system has been compromised, the applications
   lmg uses may not be trustworthy.  A more complete solution would be
   to create a secure execution environment for lmg on the portable USB
@@ -122,7 +122,7 @@ INSTALL document provided with lmg.
 
 When you wish to acquire RAM, plug the thumb drive into your target
 system.  On most Linux systems, new USB devices will get automatically
-mounted under /media.  Let's assume yours ends up under /media/LMG.
+mounted under `/media`.  Let's assume yours ends up under `/media/LMG`.
 
 Now, as root, run `/media/LMG/lmg`.  This is interactive mode and
 the user will be prompted for confirmation before lmg builds a LiME
@@ -135,10 +135,11 @@ a new directory on the thumb drive named
    `.../capture/<hostname>-YYYY-MM-DD_hh.mm.ss`
 
 In this directory you will find:
-
+```
    <hostname>-YYYY-MM-DD_hh.mm.ss-memory.lime  -- the RAM capture
    <hostname>-YYYY-MM-DD_hh.mm.ss-profile.zip  -- Volatility(TM) profile
    <hostname>-YYYY-MM-DD_hh.mm.ss-bash         -- copy of target's /bin/bash
+```
 
 The copy of `/bin/bash` is helpful for determining the address of the shell 
 history data structure in the memory of bash processes in the memory capture.
