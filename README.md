@@ -1,11 +1,12 @@
-Linux Memory Grabber
+LMG (Linux Memory Grabber):
+==========================
 A script for dumping Linux memory and creating Volatility(TM) profiles.
 Hal Pomeranz (hal@deer-run.com), 2014-03-29
 
 THANKS!
 =======
 
-"If I have seen further it is by standing on the shoulders of giants."
+>If I have seen further it is by standing on the shoulders of giants.
      ~ Issac Newton
 
 There are a lot of people who deserve thanks for making this simple
@@ -123,15 +124,15 @@ When you wish to acquire RAM, plug the thumb drive into your target
 system.  On most Linux systems, new USB devices will get automatically
 mounted under /media.  Let's assume yours ends up under /media/LMG.
 
-Now, as root, run "/media/LMG/lmg".  This is interactive mode and
+Now, as root, run `/media/LMG/lmg`.  This is interactive mode and
 the user will be prompted for confirmation before lmg builds a LiME
 module for the system and/or creates a Volatility(TM) profile.
-If you don't want to be prompted, use "/media/LMG/lmg -y".
+If you don't want to be prompted, use `/media/LMG/lmg -y`.
 
 Everything else is automated.  After the script runs, you will have
 a new directory on the thumb drive named 
 
-   ".../capture/<hostname>-YYYY-MM-DD_hh.mm.ss"
+   `.../capture/<hostname>-YYYY-MM-DD_hh.mm.ss`
 
 In this directory you will find:
 
@@ -139,9 +140,9 @@ In this directory you will find:
    <hostname>-YYYY-MM-DD_hh.mm.ss-profile.zip  -- Volatility(TM) profile
    <hostname>-YYYY-MM-DD_hh.mm.ss-bash         -- copy of target's /bin/bash
 
-The copy of /bin/bash is helpful for determining the address of the shell 
+The copy of `/bin/bash` is helpful for determining the address of the shell 
 history data structure in the memory of bash processes in the memory capture.
-See http://code.google.com/p/volatility/wiki/LinuxCommandReference23#linux_bash
+[See](http://code.google.com/p/volatility/wiki/LinuxCommandReference23#linux_bash)
 for further details on how to use this executable.
 
 
@@ -150,21 +151,21 @@ USAGE EXAMPLE
 
 Here is an example of using the lmg tool, which includes using Volatility(TM)
 directly off the thumb drive to analyze the captured image.  On my test
-machine, the thumb drive was at /dev/sdb and it was not auto-mounted by
+machine, the thumb drive was at `/dev/sdb` and it was not auto-mounted by
 my operating system.  So I did everything manually.
 
 1) Getting root and mounting the thumb drive
 --------------------------------------------
-
+```
 caribou$ sudo -s
 [sudo] password for hal: 
 caribou# mkdir -p /mnt/usb
 caribou# mount /dev/sdb1 /mnt/usb
-
+```
 
 2) Running lmg
 --------------
-
+```
 caribou# /mnt/usb/lmg -y
 make -C /lib/modules/3.2.0-41-generic/build M=/mnt/usb/lime/src modules
 make[1]: Entering directory `/usr/src/linux-headers-3.2.0-41-generic'
@@ -207,27 +208,28 @@ caribou# ls /mnt/usb/capture/caribou-2014-03-29_12.06.01/
 caribou-2014-03-29_12.06.01-bash
 caribou-2014-03-29_12.06.01-memory.lime
 caribou-2014-03-29_12.06.01-profile.zip
-
-
+```
 3) Check for the new profile
 ----------------------------
 
+```
 caribou# export VOLATILITY_PLUGINS=/mnt/usb/capture/caribou-2014-03-29_12.06.01
 caribou# /mnt/usb/volatility-2.3.1/vol.py --info | grep Linux
 Volatility Foundation Volatility Framework 2.3.1
 linux_banner            - Prints the Linux banner information
 linux_yarascan          - A shell in the Linux memory image
 Linuxcaribou-2014-03-29_12_06_01-profilex64 - A Profile for Linux caribou-2014-03-29_12.06.01-profile x64
+```
 
 
 4) Choose the new profile and memory capture, run linux_pslist to test
 ----------------------------------------------------------------------
-
+```
 caribou# export VOLATILITY_PROFILE=Linuxcaribou-2014-03-29_12_06_01-profilex64
 caribou# export VOLATILITY_LOCATION=file:///mnt/usb/capture/caribou-2014-03-29_12.06.01/caribou-2014-03-29_12.06.01-memory.lime
 caribou# /mnt/usb/volatility-2.3.1/vol.py linux_pslist
 Volatility Foundation Volatility Framework 2.3.1
-```
+
 Offset             Name                 Pid             Uid             Gid    DTB                Start Time
 ------------------ -------------------- --------------- --------------- ------ ------------------ ----------
 0xffff88022e0e8000 init                 1               0               0      0x0000000228f73000 2014-03-29 14:10:23 UTC+0000
@@ -238,7 +240,7 @@ Offset             Name                 Pid             Uid             Gid    D
 
 5) Use the captured copy of /bin/bash to dump shell history with linux_bash
 ---------------------------------------------------------------------------
-
+```
 caribou# gdb /mnt/usb/capture/caribou-2014-03-29_12.06.01/caribou-2014-03-29_12.06.01-bash 
 GNU gdb (Ubuntu/Linaro 7.4-2012.04-0ubuntu2.1) 7.4-2012.04
 Copyright (C) 2012 Free Software Foundation, Inc.
@@ -258,8 +260,9 @@ End of assembler dump.
 (gdb) quit
 caribou# vol.py linux_bash -H 0x6ee4c0 -P
 Volatility Foundation Volatility Framework 2.3.1
-    Pid      Name                 Command Time                   Command
+Pid      Name                 Command Time                   Command
     -------- -------------------- ------------------------------ -------
     2604 bash                 2014-03-29 14:11:17 UTC+0000   cat workshop-outline 
     2604 bash                 2014-03-29 14:11:17 UTC+0000   sigfind -b 4096 006D6C6F6361 /dev/mapper/RD-var
+```
 [... more output not shown ...]
