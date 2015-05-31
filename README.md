@@ -1,25 +1,26 @@
-Linux Memory Grabber
+LMG (Linux Memory Grabber):
+==========================
 A script for dumping Linux memory and creating Volatility(TM) profiles.
 Hal Pomeranz (hal@deer-run.com), 2014-03-29
 
 THANKS!
 =======
 
-"If I have seen further it is by standing on the shoulders of giants."
-     ~ Issac Newton
+>If I have seen further it is by standing on the shoulders of giants.
+      Issac Newton
 
 There are a lot of people who deserve thanks for making this simple
 little tool possible:
 
--- Joe Sylve for his work on LiME
+* **Joe Sylve** for his work on LiME
 
--- The entire Volatility(TM) development team for their ongoing work.
+* The entire **Volatility**(TM) development team for their ongoing work.
    I'd like to particularly recognize Andrew Case who answered a number
    of pesky questions from me during development of my tool.
 
--- David Anderson for his ongoing support of libdwarf and dwarfdump
+* **David Anderson** for his ongoing support of libdwarf and dwarfdump
 
--- Matt Suiche from MoonSols.  When I was putting my tool together,
+* **Matt Suiche** from MoonSols.  When I was putting my tool together,
    my design goal was "make it as easy to use as DumpIt" (if you need
    to capture Windows memory, I know of no easier to use tool).
    So thanks for the inspiration, Matt!
@@ -65,7 +66,8 @@ If you're a stickler for forensic purity, this is probably not the
 tool for you.  Let's discuss some of the ways in which my tool interacts
 with the target system:
 
-Removable Media -- The tool is designed to be run from a portable USB
+####Removable Media
+  Lmg is designed to be run from a portable USB
   device such as a thumb drive.  You are going to be plugging a writable
   device into your target system, where it could potentially be targeted
   by malicious users or malware on the system.  The act of plugging the
@@ -74,7 +76,8 @@ Removable Media -- The tool is designed to be run from a portable USB
   auto-mounted by the operating system, the user must manually mount the 
   device via a root shell.
 
-Compilation -- lmg builds a LiME kernel module for the system.
+####Compilation
+  lmg builds a LiME kernel module for the system.
   Creating a Volatility(TM) profile also involves compiling code on
   the target machine.  So gcc will be executed, header files read,
   libraries linked, etc.  lmg tries to minimize impact on the file
@@ -83,7 +86,8 @@ Compilation -- lmg builds a LiME kernel module for the system.
   created by the compiler will be written to the thumb drive rather
   than the local file system of the target machine.
 
-Dependencies -- In order to compile kernel code on Linux, the target
+####Dependencies
+  In order to compile kernel code on Linux, the target
   machine needs a working development environment with gcc, make, etc 
   and all of the appropriate include files and shared libraries.
   And in particular, the kernel header files need to be present on
@@ -92,13 +96,15 @@ Dependencies -- In order to compile kernel code on Linux, the target
   the appropriate dependencies (if possible) or being unable to
   acquire memory from the target.
 
-Malware -- lmg uses /bin/bash, gcc, and a host of other programs from
+####Malware 
+  lmg uses bash, gcc, and a host of other programs from
   the target machine.  If the system has been compromised, the applications
   lmg uses may not be trustworthy.  A more complete solution would be
   to create a secure execution environment for lmg on the portable USB
   device, but was beyond the scope of this initial proof of concept.
 
-Memory -- All of the commands being run will cause the memory of the
+####Memory
+  All of the commands being run will cause the memory of the
   target system to change.  The act of capturing RAM will always create
   artifacts, but in this case there is extensive compilation, file system
   access, etc in addition to running a RAM dumper.
@@ -107,7 +113,8 @@ All of that being said, lmg is a very convenient tool for allowing
 less-skilled agents to capture useful memory analysis data from
 target systems.
 
-Note that lmg will look for an already existing LiME module on the
+###Note 
+LMG will look for an already existing LiME module on the
 USB device that matches the kernel version and processor architecture
 of the target machine.  If found, lmg will not bother to recompile.
 Similarly, you may choose to not have lmg create the Volatility(TM)
@@ -121,27 +128,28 @@ INSTALL document provided with lmg.
 
 When you wish to acquire RAM, plug the thumb drive into your target
 system.  On most Linux systems, new USB devices will get automatically
-mounted under /media.  Let's assume yours ends up under /media/LMG.
+mounted under `/media`.  Let's assume yours ends up under `/media/LMG`.
 
-Now, as root, run "/media/LMG/lmg".  This is interactive mode and
+Now, as root, run `/media/LMG/lmg`.  This is interactive mode and
 the user will be prompted for confirmation before lmg builds a LiME
 module for the system and/or creates a Volatility(TM) profile.
-If you don't want to be prompted, use "/media/LMG/lmg -y".
+If you don't want to be prompted, use `/media/LMG/lmg -y`.
 
 Everything else is automated.  After the script runs, you will have
 a new directory on the thumb drive named 
 
-   ".../capture/<hostname>-YYYY-MM-DD_hh.mm.ss"
+   `.../capture/<hostname>-YYYY-MM-DD_hh.mm.ss`
 
 In this directory you will find:
-
+```
    <hostname>-YYYY-MM-DD_hh.mm.ss-memory.lime  -- the RAM capture
    <hostname>-YYYY-MM-DD_hh.mm.ss-profile.zip  -- Volatility(TM) profile
    <hostname>-YYYY-MM-DD_hh.mm.ss-bash         -- copy of target's /bin/bash
+```
 
-The copy of /bin/bash is helpful for determining the address of the shell 
+The copy of `/bin/bash` is helpful for determining the address of the shell 
 history data structure in the memory of bash processes in the memory capture.
-See http://code.google.com/p/volatility/wiki/LinuxCommandReference23#linux_bash
+[See](http://code.google.com/p/volatility/wiki/LinuxCommandReference23#linux_bash)
 for further details on how to use this executable.
 
 
@@ -150,21 +158,21 @@ USAGE EXAMPLE
 
 Here is an example of using the lmg tool, which includes using Volatility(TM)
 directly off the thumb drive to analyze the captured image.  On my test
-machine, the thumb drive was at /dev/sdb and it was not auto-mounted by
+machine, the thumb drive was at `/dev/sdb` and it was not auto-mounted by
 my operating system.  So I did everything manually.
 
 1) Getting root and mounting the thumb drive
 --------------------------------------------
-
+```
 caribou$ sudo -s
 [sudo] password for hal: 
 caribou# mkdir -p /mnt/usb
 caribou# mount /dev/sdb1 /mnt/usb
+```
 
-
-2) Running lmg
+2) Running LMG
 --------------
-
+```
 caribou# /mnt/usb/lmg -y
 make -C /lib/modules/3.2.0-41-generic/build M=/mnt/usb/lime/src modules
 make[1]: Entering directory `/usr/src/linux-headers-3.2.0-41-generic'
@@ -207,37 +215,39 @@ caribou# ls /mnt/usb/capture/caribou-2014-03-29_12.06.01/
 caribou-2014-03-29_12.06.01-bash
 caribou-2014-03-29_12.06.01-memory.lime
 caribou-2014-03-29_12.06.01-profile.zip
-
-
+```
 3) Check for the new profile
 ----------------------------
 
+```
 caribou# export VOLATILITY_PLUGINS=/mnt/usb/capture/caribou-2014-03-29_12.06.01
 caribou# /mnt/usb/volatility-2.3.1/vol.py --info | grep Linux
 Volatility Foundation Volatility Framework 2.3.1
 linux_banner            - Prints the Linux banner information
 linux_yarascan          - A shell in the Linux memory image
 Linuxcaribou-2014-03-29_12_06_01-profilex64 - A Profile for Linux caribou-2014-03-29_12.06.01-profile x64
+```
 
 
 4) Choose the new profile and memory capture, run linux_pslist to test
 ----------------------------------------------------------------------
-
+```
 caribou# export VOLATILITY_PROFILE=Linuxcaribou-2014-03-29_12_06_01-profilex64
 caribou# export VOLATILITY_LOCATION=file:///mnt/usb/capture/caribou-2014-03-29_12.06.01/caribou-2014-03-29_12.06.01-memory.lime
 caribou# /mnt/usb/volatility-2.3.1/vol.py linux_pslist
 Volatility Foundation Volatility Framework 2.3.1
+
 Offset             Name                 Pid             Uid             Gid    DTB                Start Time
 ------------------ -------------------- --------------- --------------- ------ ------------------ ----------
 0xffff88022e0e8000 init                 1               0               0      0x0000000228f73000 2014-03-29 14:10:23 UTC+0000
 0xffff88022e0e9700 kthreadd             2               0               0      ------------------ 2014-03-29 14:10:23 UTC+0000
 0xffff88022e0eae00 ksoftirqd/0          3               0               0      ------------------ 2014-03-29 14:10:23 UTC+0000
 [... more output not shown ...]
-
+```
 
 5) Use the captured copy of /bin/bash to dump shell history with linux_bash
 ---------------------------------------------------------------------------
-
+```
 caribou# gdb /mnt/usb/capture/caribou-2014-03-29_12.06.01/caribou-2014-03-29_12.06.01-bash 
 GNU gdb (Ubuntu/Linaro 7.4-2012.04-0ubuntu2.1) 7.4-2012.04
 Copyright (C) 2012 Free Software Foundation, Inc.
@@ -258,7 +268,8 @@ End of assembler dump.
 caribou# vol.py linux_bash -H 0x6ee4c0 -P
 Volatility Foundation Volatility Framework 2.3.1
 Pid      Name                 Command Time                   Command
--------- -------------------- ------------------------------ -------
+    -------- -------------------- ------------------------------ -------
     2604 bash                 2014-03-29 14:11:17 UTC+0000   cat workshop-outline 
     2604 bash                 2014-03-29 14:11:17 UTC+0000   sigfind -b 4096 006D6C6F6361 /dev/mapper/RD-var
+```
 [... more output not shown ...]
