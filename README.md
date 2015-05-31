@@ -227,7 +227,7 @@ caribou# export VOLATILITY_PROFILE=Linuxcaribou-2014-03-29_12_06_01-profilex64
 caribou# export VOLATILITY_LOCATION=file:///mnt/usb/capture/caribou-2014-03-29_12.06.01/caribou-2014-03-29_12.06.01-memory.lime
 caribou# /mnt/usb/volatility-2.3.1/vol.py linux_pslist
 Volatility Foundation Volatility Framework 2.3.1
-Offset             Name                 Pid             Uid             Gid    DTB                Start Time
+Offset|             Name|                 Pid|             Uid|             Gid|    DTB|                Start Time
 ------------------ -------------------- --------------- --------------- ------ ------------------ ----------
 0xffff88022e0e8000 init                 1               0               0      0x0000000228f73000 2014-03-29 14:10:23 UTC+0000
 0xffff88022e0e9700 kthreadd             2               0               0      ------------------ 2014-03-29 14:10:23 UTC+0000
