@@ -66,7 +66,8 @@ If you're a stickler for forensic purity, this is probably not the
 tool for you.  Let's discuss some of the ways in which my tool interacts
 with the target system:
 
-Removable Media -- The tool is designed to be run from a portable USB
+####Removable Media
+  Lmg is designed to be run from a portable USB
   device such as a thumb drive.  You are going to be plugging a writable
   device into your target system, where it could potentially be targeted
   by malicious users or malware on the system.  The act of plugging the
