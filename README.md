@@ -227,13 +227,14 @@ caribou# export VOLATILITY_PROFILE=Linuxcaribou-2014-03-29_12_06_01-profilex64
 caribou# export VOLATILITY_LOCATION=file:///mnt/usb/capture/caribou-2014-03-29_12.06.01/caribou-2014-03-29_12.06.01-memory.lime
 caribou# /mnt/usb/volatility-2.3.1/vol.py linux_pslist
 Volatility Foundation Volatility Framework 2.3.1
-Offset|             Name|                 Pid|             Uid|             Gid|    DTB|                Start Time
+```
+Offset             Name                 Pid             Uid             Gid    DTB                Start Time
 ------------------ -------------------- --------------- --------------- ------ ------------------ ----------
 0xffff88022e0e8000 init                 1               0               0      0x0000000228f73000 2014-03-29 14:10:23 UTC+0000
 0xffff88022e0e9700 kthreadd             2               0               0      ------------------ 2014-03-29 14:10:23 UTC+0000
 0xffff88022e0eae00 ksoftirqd/0          3               0               0      ------------------ 2014-03-29 14:10:23 UTC+0000
 [... more output not shown ...]
-
+```
 
 5) Use the captured copy of /bin/bash to dump shell history with linux_bash
 ---------------------------------------------------------------------------
@@ -257,8 +258,8 @@ End of assembler dump.
 (gdb) quit
 caribou# vol.py linux_bash -H 0x6ee4c0 -P
 Volatility Foundation Volatility Framework 2.3.1
-Pid      Name                 Command Time                   Command
--------- -------------------- ------------------------------ -------
+    Pid      Name                 Command Time                   Command
+    -------- -------------------- ------------------------------ -------
     2604 bash                 2014-03-29 14:11:17 UTC+0000   cat workshop-outline 
     2604 bash                 2014-03-29 14:11:17 UTC+0000   sigfind -b 4096 006D6C6F6361 /dev/mapper/RD-var
 [... more output not shown ...]
