@@ -11,18 +11,30 @@
 # See INSTALL doc for instructions for how to configure a thumb drive
 # for use with this tool.
 #
-# Hal Pomeranz (hal@deer-run.com), 2014-03-29
+# Hal Pomeranz (hal@deer-run.com), 2016-01-12
 #
 # No warranty expressed or implied.
 # Distributed under the Creative Commons "Attribution" (CC BY) License
 # See https://creativecommons.org/licenses/
 
-export PATH=/sbin:/bin:/usr/bin
+if [[ $EUID != 0 ]]; then
+    echo This script must run as root!
+    exit 255;
+fi
 
 FORMAT=lime
 YESTOALL=n
-while getopts ":F:y" opt; do
+while getopts ":B:c:d:F:y" opt; do
   case $opt in
+      B)
+	  BUILDDIR=$OPTARG
+	  ;;
+      c)
+	  CASEID=$OPTARG
+	  ;;
+      d)
+	  TARGETDIR=$OPTARG
+	  ;;
       F)
 	  FORMAT=$OPTARG
 	  ;;
@@ -30,7 +42,7 @@ while getopts ":F:y" opt; do
 	  YESTOALL=y
 	  ;;
       \?)
-	  echo "Usage: $0 [-y] [-F lime|raw]"
+	  echo "Usage: $0 [-y] [-F lime|raw] [-d outputdir] [-B builddir] [-c caseID]"
 	  exit 255
 	  ;;
   esac
@@ -42,51 +54,92 @@ for f in $(find /sys -name max_sectors); do
 done
 
 # Figure out where the tool is being run from and create an absolute pathname.
-# All other paths are expected to be relative to here.
 #
-TOPDIR=$(dirname $0)
-[[ $(echo $TOPDIR | cut -c1) != "/" ]] && TOPDIR=$(pwd)/$TOPDIR
-TOPDIR=$(echo $TOPDIR | sed 's/\/\.*$//')
+TOOLDIR=$(dirname $0)
+[[ $(echo $TOOLDIR | cut -c1) != "/" ]] && TOOLDIR=$(pwd)/$TOOLDIR
+TOOLDIR=$(echo $TOOLDIR | sed 's/\/\.*$//')
+
+# The default is that all other paths are relative to $TOOLDIR, but users may
+# select alternate directories with -d and -B
+#
+TARGETDIR=${TARGETDIR:=$TOOLDIR}
+BUILDDIR=${BUILDDIR:=$TARGETDIR}
+
+# We need $DIRLIST for searching
+declare -A DIRS
+DIRS[$TOOLDIR]=1
+DIRS[$TARGETDIR]=1
+DIRS[$BUILDDIR]=1
+DIRLIST="${!DIRS[@]}"
+
+# Try to keep temp files under build directory-- avoid impact to
+# system where tool is running...
+#
+mkdir -p $BUILDDIR/tmp
+export TMPDIR=$BUILDDIR/tmp
+
 
 KVER=$(uname -r)                    # e.g., "3.2.0-41-generic"
 CPU=$(uname -m)                     # typically "x86_64" or "i686"
 HOST=$(hostname)
 TIMESTAMP=$(date '+%F_%H.%M.%S')    # YYYY-MM-DD_hh.mm.ss
 
-# Try to keep temp files under install directory-- avoid impact to
-# system where tool is running...
-#
-mkdir -p $TOPDIR/tmp
-export TMPDIR=$TOPDIR/tmp
 
-# Go find the LiME installation and build a new kernel module if necessary.
-# Abort if no module found/created.
-#
-LIMEDIR=$(dirname $(find $TOPDIR -name lime.h))
-cd $LIMEDIR
-if [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
+# CAPTUREDIR is where captured memory image, profile, and bash exe end up.
+# 
+if [[ -z $CASEID ]]; then
+    CAPTUREDIR=$TARGETDIR/capture/$HOST-$TIMESTAMP
+else
+    CAPTUREDIR=$TARGETDIR/capture/$CASEID
+fi
+mkdir -p $CAPTUREDIR
+
+
+# Try to find a pre-built LiME module
+LIMEMOD=$(find $DIRLIST -name lime-$KVER-$CPU.ko | head -1)
+
+# If not found, see if we should try to build one
+if [[ -z $LIMEMOD ]]; then
     if [[ $YESTOALL == 'n' ]]; then
 	echo -n 'Try to build LiME kernel module? [N|y] '
 	read mod
     fi
     if [[ $YESTOALL == 'y' || $mod == 'y' || $mod = 'Y' ]]; then
+	LIMEDIR=$(dirname $(find $BUILDDIR -name lime.h) 2>/dev/null)
+	if [[ -z $LIMEDIR ]]; then
+	    echo "Didn't find lime.h under $BUILDDIR"
+	    LIMEDIR=$(dirname $(find $TOOLDIR -name lime.h) 2>/dev/null)
+	    if [[ -z $LIMEDIR ]]; then
+		echo "Can't find lime.h under $TOOLDIR... exiting!"
+		exit
+	    else
+		echo "Copying LiME source from $LIMEDIR to $BUILDDIR/lime"
+		cp -r $LIMEDIR $BUILDDIR/lime
+		LIMEDIR=$BUILDDIR/lime
+	    fi
+	fi
+	cd $LIMEDIR
 	make
-	if [[ ! (-f lime-$KVER-$CPU.ko) ]]; then
+	LIMEMOD=$LIMEDIR/lime-$KVER-$CPU.ko
+	if [[ ! (-f $LIMEMOD) ]]; then
 	    echo Still no matching kernel module found... exiting!
 	    exit 255
 	fi
     else
-	exit
+	echo No LiME module found... exiting
+	exit 255
     fi
 fi
 
-# Use the LiME module to capture memory to $TOPDIR/capture/$HOST-$TIMESTAMP
+# If we get here, we should have a LiME module named $LIMEMOD.
+# Use module to capture memory to $CAPTUREDIR
 #
-mkdir -p $TOPDIR/capture/$HOST-$TIMESTAMP
-echo Dumping memory in \"$FORMAT\" format to $TOPDIR/capture/$HOST-$TIMESTAMP 
+echo LiME module is $LIMEMOD
+echo Dumping memory in \"$FORMAT\" format to $CAPTUREDIR
 echo -n This could take a while...
-insmod lime-$KVER-$CPU.ko "format=$FORMAT path=$TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-memory.$FORMAT"
-echo -n Done!  Cleaning up...
+insmod $LIMEMOD "format=$FORMAT path=$CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT"
+echo Done!  
+echo -n Cleaning up...
 rmmod lime
 echo Done!
 
@@ -94,7 +147,21 @@ echo Done!
 # of the history data structure.
 #
 echo -n Grabbing a copy of /bin/bash...
-cp /bin/bash $TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-bash
+cp /bin/bash $CAPTUREDIR/$HOST-$TIMESTAMP-bash
+echo Done!
+
+# Generate a volatilityrc prototype. Use with:
+#    vol.py --conf-file=/path/to/capture/dir/volatilityrc
+#
+echo -n Writing volatilityrc to $CAPTUREDIR...
+ARCH=x$(echo $CPU | sed 's/.*\(..\)/\1/')
+PROFILE=$(echo Linux$HOST-$TIMESTAMP-profile$ARCH | sed 's/\./_/g')
+cat >$CAPTUREDIR/volatilityrc <<EOF
+[DEFAULT]
+PLUGINS=$CAPTUREDIR
+PROFILE=$PROFILE
+LOCATION=file:///$CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT
+EOF
 echo Done!
 
 # Last step is to build a profile for the system.  If you don't want
@@ -106,30 +173,35 @@ if [[ $YESTOALL == 'n' ]]; then
     read prof
 fi
 if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
-    VOLDIR=$(dirname $(find $TOPDIR -name module.c))
-    if [[ ! (-d $VOLDIR) ]]; then
-	echo Can\'t find volatility directory.  Giving up!
-	exit 255
+    VOLDIR=$(dirname $(find $BUILDDIR -name module.c) 2>/dev/null)
+    if [[ -z $VOLDIR ]]; then
+	echo "Didn't find volatility directory under $BUILDDIR"
+	VOLDIR=$(dirname $(find $TOOLDIR -name module.c) 2>/dev/null)
+	if [[ -z $VOLDIR ]]; then
+	    echo "Didn't find volatility directory under $TOOLDIR... exiting!"
+	    exit 255
+	else
+	    echo Copying volatility directory to $BUILDDIR/vol
+	    cp -r $VOLDIR $BUILDDIR/vol
+	    VOLDIR=$BUILDDIR/vol
+	fi
     fi
     
-    DWARFPROG=$(find $TOPDIR -name dwarfdump-$CPU)
+    DWARFPROG=$(find $DIRLIST -name dwarfdump-$CPU | head -1)
     if [[ ! ( -x $DWARFPROG ) ]]; then
 	echo Failed to find program dwarfdump-$CPU.  Giving up!
 	exit 255
     fi
-    DWARFDIR=$(dirname $DWARFPROG)
 
     # Put the right dwarfdump for this CPU architecture into the PATH
-    export HOME=$DWARFDIR
-    cd $DWARFDIR
-    rm -f dwarfdump
-    ln -s dwarfdump-$CPU dwarfdump
-    export PATH=$DWARFDIR:$PATH
+    rm -f $TMPDIR/dwarfdump
+    ln -s $DWARFPROG $TMPDIR/dwarfdump
+    export PATH=$TMPDIR:$PATH
 
     # Build module.c against kernel headers found on local system and
     # with System.map from local /boot directory.
     cd $VOLDIR
-    make dwarf
+    make clean dwarf
     if [[ ! (-f module.dwarf) ]]; then
 	echo Failed to make module.dwarf.  Giving up!
 	exit 255
@@ -139,7 +211,6 @@ if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
 	exit 255
     fi
 
-    # Profile ends up in $TOPDIR/capture/$HOST-$TIMESTAMP with memory image
-    zip $TOPDIR/capture/$HOST-$TIMESTAMP/$HOST-$TIMESTAMP-profile.zip \
-	module.dwarf /boot/System.map-$KVER
+    # Profile ends up in $CAPTUREDIR with memory image
+    zip $CAPTUREDIR/$HOST-$TIMESTAMP-profile.zip module.dwarf /boot/System.map-$KVER
 fi
