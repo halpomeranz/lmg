@@ -11,7 +11,7 @@
 # See INSTALL doc for instructions for how to configure a thumb drive
 # for use with this tool.
 #
-# Hal Pomeranz (hal@deer-run.com), 2016-01-12
+# Hal Pomeranz (hal@deer-run.com), 2016-05-04
 #
 # No warranty expressed or implied.
 # Distributed under the Creative Commons "Attribution" (CC BY) License
@@ -65,6 +65,12 @@ TOOLDIR=$(echo $TOOLDIR | sed 's/\/\.*$//')
 TARGETDIR=${TARGETDIR:=$TOOLDIR}
 BUILDDIR=${BUILDDIR:=$TARGETDIR}
 
+# Create absolute pathnames for TARGETDIR and BUILDDIR as necessary
+[[ $(echo $TARGETDIR | cut -c1) != "/" ]] && TARGETDIR=$(pwd)/$TARGETDIR
+TARGETDIR=$(echo $TARGETDIR | sed 's/\/\.*$//')
+[[ $(echo $BUILDDIR | cut -c1) != "/" ]] && BUILDDIR=$(pwd)/$BUILDDIR
+BUILDDIR=$(echo $BUILDDIR | sed 's/\/\.*$//')
+
 # We need $DIRLIST for searching
 declare -A DIRS
 DIRS[$TOOLDIR]=1
@@ -104,7 +110,7 @@ if [[ -z $LIMEMOD ]]; then
 	echo -n 'Try to build LiME kernel module? [N|y] '
 	read mod
     fi
-    if [[ $YESTOALL == 'y' || $mod == 'y' || $mod = 'Y' ]]; then
+    if [[ $YESTOALL == 'y' || $mod == 'y' || $mod == 'Y' ]]; then
 	LIMEDIR=$(dirname $(find $BUILDDIR -name lime.h) 2>/dev/null)
 	if [[ -z $LIMEDIR ]]; then
 	    echo "Didn't find lime.h under $BUILDDIR"
