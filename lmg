@@ -2,16 +2,15 @@
 #
 # lmg -- Linux Memory Grabber
 #
-# Automation script for dumping Linux memory via LiME and building
+# Automation script for dumping Linux memory via AVML or LiME and building
 # a Volatility(TM) profile.  "lmg -y" will take care of the entire
 # process without prompting and save everything to the "capture"
 # sub-directory wherever the lmg program is installed (e.g. a thumb drive).
-# If you prefer raw dumps add "-F raw" (the default is "lime" format).
 #
 # See INSTALL doc for instructions for how to configure a thumb drive
 # for use with this tool.
 #
-# Hal Pomeranz (hal@deer-run.com), 2016-05-04
+# Hal Pomeranz (hal@deer-run.com), 2020-02-01
 #
 # No warranty expressed or implied.
 # Distributed under the Creative Commons "Attribution" (CC BY) License
@@ -101,53 +100,67 @@ fi
 mkdir -p $CAPTUREDIR
 
 
-# Try to find a pre-built LiME module
-LIMEMOD=$(find $DIRLIST -name lime-$KVER-$CPU.ko | head -1)
-
-# If not found, see if we should try to build one
-if [[ -z $LIMEMOD ]]; then
-    if [[ $YESTOALL == 'n' ]]; then
-	echo -n 'Try to build LiME kernel module? [N|y] '
-	read mod
-    fi
-    if [[ $YESTOALL == 'y' || $mod == 'y' || $mod == 'Y' ]]; then
-	LIMEDIR=$(dirname $(find $BUILDDIR -name lime.h) 2>/dev/null)
-	if [[ -z $LIMEDIR ]]; then
-	    echo "Didn't find lime.h under $BUILDDIR"
-	    LIMEDIR=$(dirname $(find $TOOLDIR -name lime.h) 2>/dev/null)
-	    if [[ -z $LIMEDIR ]]; then
-		echo "Can't find lime.h under $TOOLDIR... exiting!"
-		exit
-	    else
-		echo "Copying LiME source from $LIMEDIR to $BUILDDIR/lime"
-		cp -r $LIMEDIR $BUILDDIR/lime
-		LIMEDIR=$BUILDDIR/lime
-	    fi
-	fi
-	cd $LIMEDIR
-	make
-	LIMEMOD=$LIMEDIR/lime-$KVER-$CPU.ko
-	if [[ ! (-f $LIMEMOD) ]]; then
-	    echo Still no matching kernel module found... exiting!
-	    exit 255
-	fi
-    else
-	echo No LiME module found... exiting
-	exit 255
-    fi
+# Try to dump memory with AVML. If we don't get a dumpfile, then try LiME.
+AVMLPROG=$(find $DIRLIST -name avml-$CPU | head -1)
+if [[ -x $AVMLPROG && ( -r /proc/kcore || -r /dev/crash) ]]; then
+    FORMAT=lime            # AVML only does LiME format
+    echo AVML is $AVMLPROG
+    echo Dumping memory in \"$FORMAT\" format to $CAPTUREDIR
+    echo -n This could take a while...
+    $AVMLPROG $CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT
+    echo Done!  
 fi
 
-# If we get here, we should have a LiME module named $LIMEMOD.
-# Use module to capture memory to $CAPTUREDIR
-#
-echo LiME module is $LIMEMOD
-echo Dumping memory in \"$FORMAT\" format to $CAPTUREDIR
-echo -n This could take a while...
-insmod $LIMEMOD "format=$FORMAT path=$CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT"
-echo Done!  
-echo -n Cleaning up...
-rmmod lime
-echo Done!
+if [[ ! ( -r $CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT ) ]]; then
+    # Try to find a pre-built LiME module
+    LIMEMOD=$(find $DIRLIST -name lime-$KVER-$CPU.ko | head -1)
+
+    # If not found, see if we should try to build one
+    if [[ -z $LIMEMOD ]]; then
+	if [[ $YESTOALL == 'n' ]]; then
+	    echo -n 'Try to build LiME kernel module? [N|y] '
+	    read mod
+	fi
+	if [[ $YESTOALL == 'y' || $mod == 'y' || $mod == 'Y' ]]; then
+	    LIMEDIR=$(dirname $(find $BUILDDIR -name lime.h) 2>/dev/null)
+	    if [[ -z $LIMEDIR ]]; then
+		echo "Didn't find lime.h under $BUILDDIR"
+		LIMEDIR=$(dirname $(find $TOOLDIR -name lime.h) 2>/dev/null)
+		if [[ -z $LIMEDIR ]]; then
+		    echo "Can't find lime.h under $TOOLDIR... exiting!"
+		    exit
+		else
+		    echo "Copying LiME source from $LIMEDIR to $BUILDDIR/lime"
+		    cp -r $LIMEDIR $BUILDDIR/lime
+		    LIMEDIR=$BUILDDIR/lime
+		fi
+	    fi
+	    cd $LIMEDIR
+	    make
+	    LIMEMOD=$LIMEDIR/lime-$KVER-$CPU.ko
+	    if [[ ! (-f $LIMEMOD) ]]; then
+		echo Still no matching kernel module found... exiting!
+		exit 255
+	    fi
+	else
+	    echo No LiME module found... exiting
+	    exit 255
+	fi
+    fi
+
+    # If we get here, we should have a LiME module named $LIMEMOD.
+    # Use module to capture memory to $CAPTUREDIR
+    #
+    echo LiME module is $LIMEMOD
+    echo Dumping memory in \"$FORMAT\" format to $CAPTUREDIR
+    echo -n This could take a while...
+    insmod $LIMEMOD "format=$FORMAT path=$CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT"
+    echo Done!  
+    echo -n Cleaning up...
+    rmmod lime
+    echo Done!
+fi
+
 
 # We want a copy of the local bash executable so we can find the offset
 # of the history data structure.
@@ -169,6 +182,7 @@ PROFILE=$PROFILE
 LOCATION=file:///$CAPTUREDIR/$HOST-$TIMESTAMP-memory.$FORMAT
 EOF
 echo Done!
+
 
 # Last step is to build a profile for the system.  If you don't want
 # this, then you don't have to install dwarfdump or volatility on your
@@ -220,3 +234,6 @@ if [[ $YESTOALL == 'y' || $prof == 'y' || $prof = 'Y' ]]; then
     # Profile ends up in $CAPTUREDIR with memory image
     zip $CAPTUREDIR/$HOST-$TIMESTAMP-profile.zip module.dwarf /boot/System.map-$KVER
 fi
+
+
+

@@ -1,5 +1,5 @@
 Installing lmg On A Thumb Drive
-Hal Pomeranz (hal@deer-run.com), 2014-03-29
+Hal Pomeranz (hal@deer-run.com), 2020-02-01
 
 Step 1 - Thumb Drive Setup:
 ===========================
@@ -78,19 +78,46 @@ the script is important.
    chmod +x /mnt/usb/lmg
 
 
-Step 3 - Install LiME Source Code
+Step 3 - Install AVML
+=====================
+
+Get the AVML source code from https://github.com/microsoft/avml
+Follow the instructions to build the binaries.
+
+Once you've built AVML, copy it to the thumb drive. Note that the
+binary must be installed using the program name "avml-$(uname -m)"
+(e.g., "avml-x86_64") or lmg won't find it. The commands below will do
+the right thing:
+
+   mkdir /mnt/usb/avml
+   cp target/$(uname -m)-unknown-linux-musl/release/avml /mnt/usb/avml/avml-$(uname -m)
+   cp target/$(uname -m)-unknown-linux-musl/release/avml-convert /mnt/usb/avml/avml-convert-$(uname -m)
+
+I'm including avml-convert here. Even though it is not required to
+get a memory dump, having a copy of avml-convert on your thumb drive
+may be useful.
+
+You'll need to repeat the above steps on both a 32-bit and a 64-bit
+system if you want to support both architectures.
+
+
+Step 4 - Install LiME Source Code
 =================================
 
-LiME is the kernel module lmg uses to dump memory from target Linux systems.  
-Download the souce code from http://code.google.com/p/lime-forensics/
+NOTE: LiME is the kernel module lmg uses to dump memory from target
+Linux systems if AVML fails to work. So this step is optional,
+assuming you're willing to trust that AVML is always going to do the
+right thing.
 
 The lmg script will be compiling the LiME kernel module on the thumb drive 
 as part of the acquisition process.  So we need to get the LiME source onto
 our thumb drive:
 
-   mkdir /mnt/usb/lime
-   cd /mnt/usb/lime
-   tar zxf ~/Downloads/lime-forensics-*.tar.gz
+   cd /mnt/usb/
+   git clone https://github.com/504ensicsLabs/LiME.git
+
+If you don't have git, you can download the LiME souce code as a ZIP file
+from https://github.com/504ensicsLabs/LiME
 
 I've included a file called lime-Makefile.patch with the lmg distribution
 that makes a minor tweak to the way LiME is built.  With my patch applied,
@@ -105,11 +132,11 @@ To apply the patch:
    patch < /some/path/to/lime-Makefile.patch
 
 
-Step 3 - Install (Statically-Linked) dwarfdump
+Step 5 - Install (Statically-Linked) dwarfdump
 ==============================================
 
 NOTE: If you do not want lmg to automatically build Volatility(TM)
-profiles for you, then you can stop right here.  lmg + LiME is enough
+profiles for you, then you can stop right here.  lmg + AVML is enough
 to capture RAM dumps from Linux systems.
 
 But assuming you want to build Volatility(TM) profiles on the fly,
@@ -146,7 +173,7 @@ directory.  To build statically-linked executables:
 
 Once you've built dwarfdump, copy it to the thumb drive along with the
 dwarfdump.conf file.  Note that the binary must be installed using the
-program name "dwarfdump-$(uname -m)" (e.g., "dwarfdump-i686") or lmg
+program name "dwarfdump-$(uname -m)" (e.g., "dwarfdump-x86_64") or lmg
 won't find it.  The commands below will do the right thing:
 
    mkdir /mnt/usb/dwarfdump
@@ -157,7 +184,7 @@ You'll need to repeat the above steps on both a 32-bit and a 64-bit
 system if you want to support both architectures.
 
 
-Step 4 - Install Volatility(TM)
+Step 6 - Install Volatility(TM)
 ===============================
 
 Technically, building a Volatility(TM) profile for Linux only requires
@@ -166,24 +193,13 @@ the entire Volatility(TM) distro on my thumb drive.  That way I know
 I'll always have a copy of Volatility(TM) handy when I want to do my
 analysis.
 
-You can grab a copy of the latest Volatility(TM) release from
-
-   http://code.google.com/p/volatility/downloads/list 
-
-After you've downloaded the source code, install it on the thumb drive:
+Installing Volatility(TM) on your thumb drive with git is easy:
 
    cd /mnt/usb
-   tar zxf ~/Downloads/volatility-*.tar.gz
+   git clone https://github.com/volatilityfoundation/volatility.git
 
-ALTERNATIVELY, grab the current source code tree using the instructions 
-found at:
-
-   http://code.google.com/p/volatility/source/checkout
-
-Installing on the thumb drive might look like:
-
-   cd /mnt/usb
-   svn checkout http://volatility.googlecode.com/svn/trunk/ volatility-read-only
+If you don't have git, you can download the latest sources as a
+ZIP file from https://github.com/volatilityfoundation/volatility
 
 lmg doesn't really care about the exact name of the directory Volatility(TM)
 gets installed in.  It will find the appropriate files automatically.
